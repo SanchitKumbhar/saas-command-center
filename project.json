@@ -1,0 +1,25 @@
+{
+  "overview": "A premium 9-page SaaS Command Center for project management with executive dashboard, AI planner, kanban execution, projects, tasks, team, and updates — designed to the quality standard of Linear, Vercel, and Stripe.",
+  "features": [
+    "Executive dashboard with KPI cards and charts",
+    "AI roadmap planner with phases and risk analysis",
+    "Kanban execution control center",
+    "Projects and task management with drag-and-drop",
+    "Team roster with skills and capacity",
+    "Typed update feed with reactions and pinning",
+    "Premium design system with OKLCH tokens",
+    "Full dark mode support",
+    "Responsive across mobile, tablet, and desktop"
+  ],
+  "category": "productivity",
+  "tags": [
+    "saas",
+    "project-management",
+    "dashboard",
+    "kanban",
+    "react",
+    "typescript",
+    "tailwind"
+  ],
+  "last_updated": "2026-04-12T08:04:00.404Z"
+}
