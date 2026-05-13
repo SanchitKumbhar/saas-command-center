@@ -21,8 +21,9 @@ export function SectionCard({
   return (
     <div
       className={cn(
-        "bg-card border border-border rounded-xl overflow-hidden",
-        "shadow-xs hover:shadow-sm transition-shadow duration-200",
+        "bg-card border border-border/90 rounded-xl overflow-hidden",
+        "shadow-[0_8px_26px_-20px_oklch(0_0_0_/_0.55)] transition-all duration-200",
+        "hover:border-border-strong/70 hover:shadow-[0_16px_32px_-20px_oklch(0_0_0_/_0.6)]",
         className,
       )}
       data-ocid="section-card"

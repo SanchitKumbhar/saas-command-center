@@ -152,7 +152,7 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="group relative flex flex-col gap-4 rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg hover:shadow-primary/5 sm:p-6">
+    <div className="group relative flex h-full flex-col gap-4 rounded-2xl border border-border/90 bg-card/95 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_24px_44px_-28px_oklch(0_0_0_/_0.65)] sm:p-6">
       <div
         className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}
       >
@@ -184,7 +184,7 @@ function TestimonialCard({
   color: string;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-border-strong sm:p-6">
+    <div className="flex h-full flex-col gap-4 rounded-2xl border border-border/90 bg-card/95 p-5 transition-all duration-200 hover:border-border-strong/80 hover:shadow-[0_18px_34px_-24px_oklch(0_0_0_/_0.65)] sm:p-6">
       <div className="flex gap-0.5">
         {["s1", "s2", "s3", "s4", "s5"].map((id) => (
           <Star
@@ -217,18 +217,15 @@ function TestimonialCard({
 
 function DashboardMockup() {
   return (
-    <div className="relative mx-auto mt-14 max-w-4xl sm:mt-20">
+    <div className="relative mx-auto mt-14 max-w-5xl sm:mt-20">
       {/* ambient glow layers */}
-      <div
-        className="pointer-events-none absolute inset-x-0 -top-12 h-48 bg-primary/8 blur-3xl"
-        aria-hidden
-      />
+      <div className="pointer-events-none absolute inset-x-0 -top-12 h-48 bg-primary/9 blur-3xl" aria-hidden />
       <div
         className="pointer-events-none absolute inset-x-4 bottom-0 h-24 bg-primary/12 blur-2xl"
         aria-hidden
       />
 
-      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-primary/10 ring-1 ring-border/20">
+      <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-[0_30px_60px_-38px_oklch(0_0_0_/_0.75)] ring-1 ring-border/30">
         {/* titlebar */}
         <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-3">
           <div className="flex gap-1.5">
@@ -470,9 +467,9 @@ export default function Landing() {
             className="pointer-events-none absolute inset-0 overflow-hidden"
             aria-hidden
           >
-            <div className="absolute -left-1/3 -top-1/4 h-[600px] w-[600px] rounded-full bg-primary/6 blur-[100px]" />
-            <div className="absolute -bottom-1/4 -right-1/4 h-[500px] w-[500px] rounded-full bg-violet-500/5 blur-[100px]" />
-            <div className="absolute left-1/2 top-1/3 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-blue-500/4 blur-[80px]" />
+            <div className="absolute -left-1/3 -top-1/4 h-[600px] w-[600px] rounded-full bg-primary/8 blur-[100px]" />
+            <div className="absolute -bottom-1/4 -right-1/4 h-[500px] w-[500px] rounded-full bg-cyan-500/7 blur-[100px]" />
+            <div className="absolute left-1/2 top-1/3 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-emerald-500/6 blur-[80px]" />
           </div>
 
           <div className="relative mx-auto max-w-4xl text-center">
@@ -492,7 +489,7 @@ export default function Landing() {
             <h1 className="font-display text-h1 font-bold leading-[1.08] tracking-tight text-foreground animate-[fade-in-up_0.5s_ease-out_0.05s_both]">
               The Apex Workspace
               <br />
-              <span className="bg-gradient-to-r from-primary via-violet-400 to-blue-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
                 for Modern Teams
               </span>
             </h1>
@@ -547,7 +544,7 @@ export default function Landing() {
         </section>
 
         {/* ── Stats ────────────────────────────────────────────────────────── */}
-        <section className="mt-12 border-y border-border bg-muted/25 px-4 py-10 sm:mt-16 sm:px-6 sm:py-12 lg:px-8">
+        <section className="mt-12 border-y border-border/80 bg-gradient-to-b from-muted/45 via-muted/20 to-transparent px-4 py-10 sm:mt-16 sm:px-6 sm:py-12 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:divide-x md:divide-border">
               {STATS.map((s, i) => (
@@ -598,7 +595,7 @@ export default function Landing() {
         {/* ── Testimonials ─────────────────────────────────────────────────── */}
         <section
           id="testimonials"
-          className="border-t border-border bg-muted/20 px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24"
+          className="border-t border-border/80 bg-gradient-to-b from-muted/25 via-muted/15 to-transparent px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24"
         >
           <div className="mx-auto max-w-7xl">
             <div className="mb-12 text-center sm:mb-14">
@@ -629,7 +626,7 @@ export default function Landing() {
         >
           {/* Gradient background */}
           <div
-            className="absolute inset-0 bg-gradient-to-br from-primary/90 via-violet-600/80 to-blue-600/80"
+            className="absolute inset-0 bg-gradient-to-br from-primary/90 via-cyan-600/80 to-emerald-600/80"
             aria-hidden
           />
           {/* Radial highlight */}

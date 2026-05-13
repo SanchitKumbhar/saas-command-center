@@ -1,2 +1,5 @@
 # saas-command-center
-Exported from Caffeine project: SaaS Command Center
+
+SaaS Command Center monorepo exported from Caffeine.
+
+Project documentation: see [PROJECT.md](PROJECT.md).

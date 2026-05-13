@@ -1,1104 +1,993 @@
 import { PageHeader } from "@/components/shared/PageHeader";
-import { SectionCard } from "@/components/shared/SectionCard";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { samplePlannerOutput } from "@/data/planner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { mockTeam } from "@/data/team";
 import { cn } from "@/lib/utils";
-import type {
-  PhaseStatus,
-  PlannerOutput,
-  PlannerTask,
-  TaskStatus,
-} from "@/types";
 import {
   AlertTriangle,
-  BarChart3,
+  ArrowRight,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  Circle,
-  Clock,
-  DollarSign,
-  Download,
-  Layers,
-  PenLine,
-  RefreshCw,
-  RotateCcw,
+  Clock3,
+  GitBranch,
+  LayoutDashboard,
+  ListTodo,
+  Plus,
   Sparkles,
   Target,
-  Timer,
+  TimerReset,
   TrendingUp,
+  Trash2,
+  Undo2,
   Users,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-// ─── Form State ───────────────────────────────────────────────────────────────
-interface PlannerForm {
-  startupIdea: string;
-  industry: string;
-  stage: string;
-  teamSize: string;
+type TaskPriority = "critical" | "high" | "medium" | "low";
+type TaskStatus = "todo" | "in-progress" | "review" | "done" | "blocked";
+type RiskLevel = "high" | "medium" | "low";
+type AiChangeType = "moved" | "delayed" | "unchanged";
+
+interface PlanTask {
+  id: string;
+  name: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  deadline: string;
+  assignee: string;
+  dependencies: string[];
+  startWeek: number;
+  endWeek: number;
+}
+
+interface ProjectRisk {
+  id: string;
+  title: string;
+  severity: RiskLevel;
+  probability: RiskLevel;
+  impact: RiskLevel;
+  mitigation: string;
+}
+
+interface AiChange {
+  id: string;
+  taskName: string;
+  type: AiChangeType;
+  note: string;
+}
+
+interface EffortEstimate {
+  id: string;
+  taskName: string;
+  estimate: string;
+  load: number;
+  note: string;
+}
+
+interface OutcomeEstimate {
+  id: string;
+  label: string;
+  summary: string;
+  benefits: string[];
+}
+
+interface TeamMemberInput {
+  id: string;
+  name: string;
+}
+
+interface PlanInputForm {
+  projectName: string;
+  productIdea: string;
+  problemStatement: string;
+  targetUsers: string;
+  goals: string;
   timeline: string;
-  goal: string;
+  budget: string;
+  constraints: string;
 }
 
-const defaultForm: PlannerForm = {
-  startupIdea: "",
-  industry: "",
-  stage: "",
-  teamSize: "",
+const timelineWeeks = 16;
+
+const defaultPlanInputForm: PlanInputForm = {
+  projectName: "",
+  productIdea: "",
+  problemStatement: "",
+  targetUsers: "",
+  goals: "",
   timeline: "",
-  goal: "",
+  budget: "",
+  constraints: "",
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-type SortKey = keyof Pick<
-  PlannerTask,
-  "title" | "owner" | "status" | "priority" | "week"
->;
-type SortDir = "asc" | "desc";
-
-const priorityOrder: Record<string, number> = {
-  critical: 4,
-  high: 3,
-  medium: 2,
-  low: 1,
-};
-const riskSeverityOrder: Record<string, number> = {
-  high: 3,
-  medium: 2,
-  low: 1,
+const defaultTeamMemberInput: TeamMemberInput = {
+  id: "member-1",
+  name: "",
 };
 
-function getPriorityBadgeClass(priority: string) {
-  switch (priority) {
-    case "critical":
-      return "bg-destructive/10 text-destructive border-destructive/25";
-    case "high":
-      return "bg-warning/10 text-warning border-warning/25";
-    case "medium":
-      return "bg-info/10 text-info border-info/25";
-    default:
-      return "bg-muted text-muted-foreground border-border";
+const initialTasks: PlanTask[] = [
+  {
+    id: "T-01",
+    name: "Requirements and product scope",
+    priority: "high",
+    status: "done",
+    deadline: "2026-04-10",
+    assignee: "Rina",
+    dependencies: [],
+    startWeek: 1,
+    endWeek: 2,
+  },
+  {
+    id: "T-02",
+    name: "Architecture and technical design",
+    priority: "critical",
+    status: "done",
+    deadline: "2026-04-17",
+    assignee: "Alex",
+    dependencies: ["T-01"],
+    startWeek: 2,
+    endWeek: 4,
+  },
+  {
+    id: "T-03",
+    name: "Core API implementation",
+    priority: "critical",
+    status: "in-progress",
+    deadline: "2026-05-08",
+    assignee: "Maya",
+    dependencies: ["T-02"],
+    startWeek: 4,
+    endWeek: 8,
+  },
+  {
+    id: "T-04",
+    name: "UI module development",
+    priority: "high",
+    status: "in-progress",
+    deadline: "2026-05-14",
+    assignee: "Jules",
+    dependencies: ["T-02"],
+    startWeek: 5,
+    endWeek: 9,
+  },
+  {
+    id: "T-05",
+    name: "Integration and QA cycle",
+    priority: "high",
+    status: "review",
+    deadline: "2026-05-22",
+    assignee: "Noah",
+    dependencies: ["T-03", "T-04"],
+    startWeek: 9,
+    endWeek: 11,
+  },
+  {
+    id: "T-06",
+    name: "Security and performance testing",
+    priority: "medium",
+    status: "todo",
+    deadline: "2026-05-27",
+    assignee: "Ivy",
+    dependencies: ["T-05"],
+    startWeek: 11,
+    endWeek: 13,
+  },
+  {
+    id: "T-07",
+    name: "Release preparation",
+    priority: "high",
+    status: "blocked",
+    deadline: "2026-05-30",
+    assignee: "Rina",
+    dependencies: ["T-06"],
+    startWeek: 13,
+    endWeek: 14,
+  },
+  {
+    id: "T-08",
+    name: "Launch and handoff",
+    priority: "medium",
+    status: "todo",
+    deadline: "2026-06-07",
+    assignee: "Alex",
+    dependencies: ["T-07"],
+    startWeek: 15,
+    endWeek: 16,
+  },
+];
+
+const initialAiChanges: AiChange[] = [
+  {
+    id: "A-01",
+    taskName: "Integration and QA cycle",
+    type: "moved",
+    note: "Moved 1 week earlier to reduce release crunch.",
+  },
+  {
+    id: "A-02",
+    taskName: "Security and performance testing",
+    type: "delayed",
+    note: "Delayed by 3 days due to dependency on QA signoff.",
+  },
+  {
+    id: "A-03",
+    taskName: "Release preparation",
+    type: "unchanged",
+    note: "Kept unchanged because critical path remains valid.",
+  },
+];
+
+const navItems = [
+  { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+  { id: "timeline", label: "Timeline", icon: GitBranch },
+  { id: "tasks", label: "Tasks", icon: ListTodo },
+  { id: "effort", label: "Effort", icon: TimerReset },
+  { id: "outcome", label: "Outcome", icon: TrendingUp },
+];
+
+function levelClass(level: RiskLevel | TaskPriority) {
+  if (level === "high" || level === "critical") {
+    return "bg-destructive/20 text-destructive border-destructive/40";
   }
-}
-
-function getRiskSeverityConfig(level: string) {
-  switch (level) {
-    case "high":
-      return {
-        badge: "bg-destructive/10 text-destructive border-destructive/25",
-        border: "border-l-destructive",
-        icon: "text-destructive",
-        label: "High",
-      };
-    case "medium":
-      return {
-        badge: "bg-warning/10 text-warning border-warning/25",
-        border: "border-l-warning",
-        icon: "text-warning",
-        label: "Medium",
-      };
-    default:
-      return {
-        badge: "bg-info/10 text-info border-info/25",
-        border: "border-l-info",
-        icon: "text-info",
-        label: "Low",
-      };
+  if (level === "medium") {
+    return "bg-warning/20 text-warning border-warning/40";
   }
+  return "bg-info/20 text-info border-info/40";
 }
 
-function getMetricIcon(category: string) {
-  switch (category) {
-    case "revenue":
-      return <DollarSign className="w-4 h-4" />;
-    case "growth":
-      return <TrendingUp className="w-4 h-4" />;
-    case "product":
-      return <BarChart3 className="w-4 h-4" />;
-    case "customer":
-      return <Target className="w-4 h-4" />;
-    case "team":
-      return <Users className="w-4 h-4" />;
-    default:
-      return <Target className="w-4 h-4" />;
-  }
+function statusClass(status: TaskStatus) {
+  if (status === "done") return "bg-success/20 text-success border-success/40";
+  if (status === "in-progress") return "bg-primary/20 text-primary border-primary/40";
+  if (status === "review") return "bg-info/20 text-info border-info/40";
+  if (status === "blocked") return "bg-destructive/20 text-destructive border-destructive/40";
+  return "bg-muted/70 text-muted-foreground border-border";
 }
 
-function getMetricCategoryColor(category: string) {
-  switch (category) {
-    case "revenue":
-      return "text-success bg-success/10 border-success/20";
-    case "growth":
-      return "text-primary bg-primary/10 border-primary/20";
-    case "product":
-      return "text-info bg-info/10 border-info/20";
-    case "customer":
-      return "text-warning bg-warning/10 border-warning/20";
-    default:
-      return "text-muted-foreground bg-muted border-border";
-  }
+function aiTypeClass(type: AiChangeType) {
+  if (type === "moved") return "text-info";
+  if (type === "delayed") return "text-warning";
+  return "text-success";
 }
 
-function getPhaseTimelineColor(status: string) {
-  switch (status) {
-    case "completed":
-      return "bg-success/80 border-success";
-    case "active":
-      return "bg-primary/80 border-primary";
-    default:
-      return "bg-muted border-border";
-  }
+function deriveEffortEstimate(task: PlanTask): EffortEstimate {
+  const duration = task.endWeek - task.startWeek + 1;
+  const multiplier =
+    task.priority === "critical"
+      ? 14
+      : task.priority === "high"
+        ? 10
+        : task.priority === "medium"
+          ? 7
+          : 5;
+
+  const effortHours = duration * multiplier;
+
+  return {
+    id: task.id,
+    taskName: task.name,
+    estimate: `${effortHours}h`,
+    load: Math.min(100, Math.round((effortHours / 140) * 100)),
+    note:
+      task.dependencies.length > 1
+        ? "Higher coordination load due to multiple dependencies."
+        : task.dependencies.length === 1
+          ? "Moderate delivery load with one prerequisite."
+          : "Low dependency load and simpler scheduling.",
+  };
 }
 
-function getPhaseTimelineTextColor(status: string) {
-  switch (status) {
-    case "completed":
-      return "text-success-foreground";
-    case "active":
-      return "text-primary-foreground";
-    default:
-      return "text-muted-foreground";
-  }
-}
+function buildOutcomeEstimates(tasks: PlanTask[], overdueCount: number): OutcomeEstimate[] {
+  const doneCount = tasks.filter((task) => task.status === "done").length;
+  const blockedCount = tasks.filter((task) => task.status === "blocked").length;
+  const completionGain = Math.min(4, Math.max(1, doneCount));
+  const scheduleWin = overdueCount === 0 ? "stronger schedule reliability" : "fewer deadline slips";
+  const launchWin = blockedCount > 0 ? "clearer unblock path before launch" : "cleaner launch handoff";
 
-const TOTAL_WEEKS = 52;
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function phaseStatusToVariant(
-  status: PhaseStatus,
-): "completed" | "in-progress" | "todo" {
-  if (status === "completed") return "completed";
-  if (status === "active") return "in-progress";
-  return "todo";
-}
-
-// ─── Roadmap Stats Row ────────────────────────────────────────────────────────
-
-function RoadmapStats({ output }: { output: PlannerOutput }) {
-  const totalTasks = output.phases.reduce((s, p) => s + p.tasks.length, 0);
-  const completedPhases = output.phases.filter(
-    (p) => p.status === "completed",
-  ).length;
-
-  const stats = [
+  return [
     {
-      icon: <Layers className="w-3.5 h-3.5" />,
-      label: "Phases",
-      value: String(output.phases.length),
+      id: "o-01",
+      label: "Delivery Momentum",
+      summary: "The plan should keep the team moving through execution with less churn.",
+      benefits: [
+        `${completionGain}+ major milestones already completed or underway`,
+        "Less context switching because dependencies are mapped up front",
+        "Clear weekly focus for each phase",
+      ],
     },
     {
-      icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-      label: "Completed",
-      value: String(completedPhases),
+      id: "o-02",
+      label: "Team Alignment",
+      summary: "Following the plan should improve coordination across product, engineering, and QA.",
+      benefits: [
+        "Shared priorities across every task owner",
+        "Fewer handoff gaps between build and review work",
+        "More predictable ownership during execution",
+      ],
     },
     {
-      icon: <Target className="w-3.5 h-3.5" />,
-      label: "Total Tasks",
-      value: String(totalTasks),
-    },
-    {
-      icon: <Timer className="w-3.5 h-3.5" />,
-      label: "Timeline",
-      value: output.timeline,
+      id: "o-03",
+      label: "Delivery Upside",
+      summary: "Sticking to the plan should create a cleaner release path and reduce rework.",
+      benefits: [
+        `Expected ${scheduleWin}`,
+        launchWin,
+        "Better release confidence for stakeholders and leadership",
+      ],
     },
   ];
-
-  return (
-    <div className="flex flex-wrap gap-2 sm:gap-3">
-      {stats.map((s) => (
-        <div
-          key={s.label}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 border border-border text-xs"
-        >
-          <span className="text-muted-foreground">{s.icon}</span>
-          <span className="text-muted-foreground">{s.label}:</span>
-          <span className="font-semibold text-foreground">{s.value}</span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
-// ─── Phases Section ───────────────────────────────────────────────────────────
+export default function Planner() {
+  const [tasks, setTasks] = useState<PlanTask[]>(initialTasks);
+  const [aiChanges, setAiChanges] = useState<AiChange[]>(initialAiChanges);
+  const [aiAccepted, setAiAccepted] = useState(false);
+  const [planInputForm, setPlanInputForm] = useState<PlanInputForm>(defaultPlanInputForm);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberInput[]>([defaultTeamMemberInput]);
 
-function PhasesSection({ output }: { output: PlannerOutput }) {
-  return (
-    <SectionCard
-      title="Phases"
-      headerAction={
-        <span className="text-xs text-muted-foreground">
-          {output.phases.length} phases
-        </span>
-      }
-    >
-      <Accordion
-        type="multiple"
-        className="space-y-2"
-        defaultValue={["phase-2"]}
-      >
-        {output.phases.map((phase) => (
-          <AccordionItem
-            key={phase.id}
-            value={phase.id}
-            className={cn(
-              "border border-border rounded-lg overflow-hidden border-l-[3px]",
-              phase.status === "completed" && "border-l-success/70",
-              phase.status === "active" && "border-l-primary",
-              phase.status === "upcoming" && "border-l-border",
-            )}
-          >
-            <AccordionTrigger
-              className="px-4 py-3 hover:bg-muted/30 transition-colors [&[data-state=open]]:bg-muted/20 [&>svg]:hidden"
-              data-ocid={`phase-accordion-${phase.id}`}
-            >
-              <div className="flex items-center gap-3 w-full min-w-0">
-                <div className="flex-shrink-0">
-                  {phase.status === "completed" ? (
-                    <CheckCircle2 className="w-4 h-4 text-success" />
-                  ) : phase.status === "active" ? (
-                    <Clock className="w-4 h-4 text-primary" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-muted-foreground/50" />
-                  )}
-                </div>
-                <span className="text-sm font-semibold text-foreground truncate flex-1 text-left">
-                  {phase.title}
-                </span>
-                <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:block tabular-nums">
-                  {phase.duration}
-                </span>
-                <StatusBadge
-                  status={phaseStatusToVariant(phase.status)}
-                  className="flex-shrink-0"
-                />
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4 pt-2 border-t border-border/60">
-              <p className="text-sm leading-relaxed text-muted-foreground mb-3">
-                {phase.description}
-              </p>
-              {phase.objectives.length > 0 && (
-                <div>
-                  <p className="text-overline text-muted-foreground mb-2">
-                    Key Objectives
-                  </p>
-                  <ul className="space-y-1.5">
-                    {phase.objectives.map((obj) => (
-                      <li
-                        key={obj}
-                        className="flex items-start gap-2 text-sm text-muted-foreground"
-                      >
-                        <span className="mt-1.5 w-1 h-1 rounded-full bg-primary/60 flex-shrink-0" />
-                        {obj}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border/60">
-                {phase.tasks.length} task{phase.tasks.length !== 1 ? "s" : ""}{" "}
-                in this phase
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
-    </SectionCard>
+  const effortEstimates = useMemo(
+    () => tasks.map((task) => deriveEffortEstimate(task)),
+    [tasks],
   );
-}
 
-// ─── Tasks Section ────────────────────────────────────────────────────────────
-
-function TasksSection({ output }: { output: PlannerOutput }) {
-  const allTasks = useMemo(
-    () => output.phases.flatMap((p) => p.tasks),
-    [output.phases],
+  const completedCount = useMemo(
+    () => tasks.filter((task) => task.status === "done").length,
+    [tasks],
   );
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("week");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const filtered = useMemo(() => {
-    let rows = allTasks;
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.owner.toLowerCase().includes(q),
-      );
-    }
-    if (filterStatus !== "all") {
-      rows = rows.filter((t) => t.status === filterStatus);
-    }
-    return [...rows].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "priority") {
-        cmp =
-          (priorityOrder[a.priority] ?? 0) - (priorityOrder[b.priority] ?? 0);
-      } else if (sortKey === "week") {
-        cmp = a.week - b.week;
-      } else {
-        cmp = String(a[sortKey]).localeCompare(String(b[sortKey]));
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [allTasks, search, filterStatus, sortKey, sortDir]);
+  const completionPercent = Math.round((completedCount / tasks.length) * 100);
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+  const overdueCount = useMemo(() => {
+    const today = new Date("2026-04-29");
+    return tasks.filter(
+      (task) =>
+        task.status !== "done" &&
+        new Date(`${task.deadline}T00:00:00`) < today,
+    ).length;
+  }, [tasks]);
+
+  const outcomeEstimates = useMemo(
+    () => buildOutcomeEstimates(tasks, overdueCount),
+    [tasks, overdueCount],
+  );
+
+  const statusDistribution = useMemo(() => {
+    const counts: Record<TaskStatus, number> = {
+      todo: 0,
+      "in-progress": 0,
+      review: 0,
+      done: 0,
+      blocked: 0,
+    };
+
+    for (const task of tasks) counts[task.status] += 1;
+    return counts;
+  }, [tasks]);
+
+  const priorityDistribution = useMemo(() => {
+    const counts: Record<TaskPriority, number> = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+    };
+
+    for (const task of tasks) counts[task.priority] += 1;
+    return counts;
+  }, [tasks]);
+
+  const projectStatus = completionPercent >= 85 ? "On Track" : completionPercent >= 60 ? "At Risk" : "Behind";
+
+  const totalEffortHours = effortEstimates.reduce(
+    (sum, estimate) => sum + Number.parseInt(estimate.estimate, 10),
+    0,
+  );
+
+  const aiPlanPayload = useMemo(
+    () => ({
+      ...planInputForm,
+      teamMembers: teamMembers.filter(
+        (member) => member.name.trim(),
+      ),
+    }),
+    [planInputForm, teamMembers],
+  );
+
+  function updatePlanInput(field: keyof PlanInputForm, value: string) {
+    setPlanInputForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col)
-      return <ChevronsUpDown className="w-3 h-3 opacity-40" />;
-    return sortDir === "asc" ? (
-      <ChevronUp className="w-3 h-3" />
-    ) : (
-      <ChevronDown className="w-3 h-3" />
+  function addTeamMember() {
+    setTeamMembers((prev) => [
+      ...prev,
+      {
+        id: `member-${prev.length + 1}`,
+        name: "",
+      },
+    ]);
+  }
+
+  function updateTeamMember(
+    id: string,
+    field: keyof Omit<TeamMemberInput, "id">,
+    value: string,
+  ) {
+    setTeamMembers((prev) =>
+      prev.map((member) =>
+        member.id === id ? { ...member, [field]: value } : member,
+      ),
     );
   }
 
-  const statusOptions: { value: string; label: string }[] = [
-    { value: "all", label: "All Statuses" },
-    { value: "todo", label: "To Do" },
-    { value: "in-progress", label: "In Progress" },
-    { value: "review", label: "Review" },
-    { value: "done", label: "Done" },
-    { value: "blocked", label: "Blocked" },
-  ];
-
-  return (
-    <SectionCard
-      title="Tasks"
-      headerAction={
-        <span className="text-xs text-muted-foreground">
-          {filtered.length} of {allTasks.length}
-        </span>
+  function removeTeamMember(id: string) {
+    setTeamMembers((prev) => {
+      if (prev.length === 1) {
+        return [{ ...defaultTeamMemberInput, id: "member-1" }];
       }
-    >
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <Input
-          placeholder="Search tasks or assignees…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-9 text-sm sm:max-w-64"
-          data-ocid="tasks-search"
-        />
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger
-            className="h-9 text-sm sm:w-44"
-            data-ocid="tasks-filter-status"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto -mx-4 sm:-mx-5 scrollbar-thin">
-        <Table className="text-xs sm:text-sm min-w-[560px]">
-          <TableHeader>
-            <TableRow className="border-border hover:bg-transparent bg-muted/30">
-              <TableHead
-                className="cursor-pointer select-none whitespace-nowrap pl-4 sm:pl-5 text-overline text-muted-foreground font-semibold"
-                onClick={() => toggleSort("title")}
-                data-ocid="sort-title"
-              >
-                <span className="flex items-center gap-1.5">
-                  Task <SortIcon col="title" />
-                </span>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer select-none whitespace-nowrap hidden md:table-cell text-overline text-muted-foreground font-semibold"
-                onClick={() => toggleSort("owner")}
-                data-ocid="sort-owner"
-              >
-                <span className="flex items-center gap-1.5">
-                  Assignee <SortIcon col="owner" />
-                </span>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer select-none whitespace-nowrap text-overline text-muted-foreground font-semibold"
-                onClick={() => toggleSort("status")}
-                data-ocid="sort-status"
-              >
-                <span className="flex items-center gap-1.5">
-                  Status <SortIcon col="status" />
-                </span>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer select-none whitespace-nowrap text-right text-overline text-muted-foreground font-semibold"
-                onClick={() => toggleSort("week")}
-                data-ocid="sort-week"
-              >
-                <span className="flex items-center justify-end gap-1.5">
-                  Due Week <SortIcon col="week" />
-                </span>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer select-none whitespace-nowrap hidden sm:table-cell text-overline text-muted-foreground font-semibold"
-                onClick={() => toggleSort("priority")}
-                data-ocid="sort-priority"
-              >
-                <span className="flex items-center gap-1.5">
-                  Priority <SortIcon col="priority" />
-                </span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center text-muted-foreground py-10 text-sm"
-                >
-                  No tasks match your filters.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((task, i) => (
-                <TableRow
-                  key={task.id}
-                  className={cn(
-                    "border-border transition-colors cursor-default",
-                    i % 2 === 0 ? "bg-transparent" : "bg-muted/20",
-                    "hover:bg-muted/40",
-                  )}
-                  data-ocid={`task-row-${task.id}`}
-                >
-                  <TableCell className="pl-4 sm:pl-5">
-                    <div>
-                      <p className="text-xs sm:text-sm font-medium text-foreground leading-snug">
-                        {task.title}
-                      </p>
-                      {task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {task.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/60"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
-                    {task.owner}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={task.status as TaskStatus} />
-                  </TableCell>
-                  <TableCell className="text-right text-xs sm:text-sm tabular-nums text-muted-foreground font-mono">
-                    Wk {task.week}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border capitalize",
-                        getPriorityBadgeClass(task.priority),
-                      )}
-                    >
-                      {task.priority}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </SectionCard>
-  );
-}
-
-// ─── Timeline Section ─────────────────────────────────────────────────────────
-
-function TimelineSection({ output }: { output: PlannerOutput }) {
-  return (
-    <SectionCard title="Timeline">
-      <div className="space-y-3">
-        <div className="overflow-x-auto scrollbar-thin">
-          <div className="flex items-center gap-1 mb-4 min-w-[400px]">
-            <div className="w-28 sm:w-32 flex-shrink-0" />
-            <div className="flex-1 relative h-4 min-w-0">
-              <div className="flex justify-between text-xs text-muted-foreground select-none font-mono">
-                {[1, 13, 26, 39, 52].map((w) => (
-                  <span key={w}>Wk {w}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2.5 min-w-[400px]">
-            {output.phases.map((phase) => {
-              const startPct = ((phase.startWeek - 1) / TOTAL_WEEKS) * 100;
-              const widthPct =
-                ((phase.endWeek - phase.startWeek + 1) / TOTAL_WEEKS) * 100;
-              return (
-                <div key={phase.id} className="flex items-center gap-3">
-                  <div className="w-28 sm:w-32 flex-shrink-0 text-right">
-                    <p className="text-xs font-medium text-foreground leading-tight truncate">
-                      {phase.title}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground font-mono">
-                      {phase.duration}
-                    </p>
-                  </div>
-                  <div className="flex-1 relative h-7 bg-muted/50 rounded-md overflow-hidden min-w-0 border border-border/40">
-                    <div
-                      className={cn(
-                        "absolute top-0 h-full rounded flex items-center px-2 transition-all border",
-                        getPhaseTimelineColor(phase.status),
-                      )}
-                      style={{ left: `${startPct}%`, width: `${widthPct}%` }}
-                    >
-                      <span
-                        className={cn(
-                          "text-[11px] font-semibold truncate",
-                          getPhaseTimelineTextColor(phase.status),
-                          phase.status === "upcoming"
-                            ? "text-muted-foreground"
-                            : "",
-                        )}
-                      >
-                        {phase.title}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-5 pt-3 mt-1 border-t border-border/60 flex-wrap">
-          {(["completed", "active", "upcoming"] as const).map((s) => (
-            <div key={s} className="flex items-center gap-1.5">
-              <span
-                className={cn(
-                  "w-3 h-3 rounded border",
-                  getPhaseTimelineColor(s),
-                )}
-              />
-              <span className="text-xs text-muted-foreground capitalize">
-                {s}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-// ─── Risk Panel ───────────────────────────────────────────────────────────────
-
-function RiskPanel({ output }: { output: PlannerOutput }) {
-  const sorted = useMemo(
-    () =>
-      [...output.risks].sort(
-        (a, b) =>
-          (riskSeverityOrder[b.impact] ?? 0) -
-          (riskSeverityOrder[a.impact] ?? 0),
-      ),
-    [output.risks],
-  );
-
-  return (
-    <SectionCard
-      title="Risk Assessment"
-      headerAction={
-        <span className="text-xs text-muted-foreground">
-          {sorted.length} risks identified
-        </span>
-      }
-    >
-      <div className="space-y-2.5">
-        {sorted.map((risk) => {
-          const cfg = getRiskSeverityConfig(risk.impact);
-          return (
-            <div
-              key={risk.id}
-              className={cn(
-                "p-4 rounded-lg border border-border bg-background hover:bg-muted/20 transition-colors border-l-[3px]",
-                cfg.border,
-              )}
-              data-ocid={`risk-${risk.id}`}
-            >
-              <div className="flex items-start gap-3">
-                <AlertTriangle
-                  className={cn("w-4 h-4 mt-0.5 flex-shrink-0", cfg.icon)}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <p className="text-sm font-semibold text-foreground">
-                      {risk.title}
-                    </p>
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border",
-                        cfg.badge,
-                      )}
-                    >
-                      {cfg.label} Impact
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border",
-                        getRiskSeverityConfig(risk.probability).badge,
-                      )}
-                    >
-                      {getRiskSeverityConfig(risk.probability).label} Prob.
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
-                    {risk.description}
-                  </p>
-                  <div className="text-xs bg-muted/50 rounded-md p-2.5 border border-border/70">
-                    <span className="font-semibold text-foreground">
-                      Mitigation:{" "}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {risk.mitigation}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </SectionCard>
-  );
-}
-
-// ─── Success Metrics Section ──────────────────────────────────────────────────
-
-function SuccessMetricsSection({ output }: { output: PlannerOutput }) {
-  return (
-    <SectionCard title="Success Metrics">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {output.successMetrics.map((metric) => (
-          <div
-            key={metric.id}
-            className="p-4 rounded-lg border border-border bg-background hover:bg-muted/20 hover:border-border-strong transition-colors group"
-            data-ocid={`metric-${metric.id}`}
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <span
-                className={cn(
-                  "inline-flex items-center justify-center w-8 h-8 rounded-lg border text-xs",
-                  getMetricCategoryColor(metric.category),
-                )}
-              >
-                {getMetricIcon(metric.category)}
-              </span>
-              <span className="text-xs text-muted-foreground capitalize font-medium">
-                {metric.category}
-              </span>
-            </div>
-            <p className="text-xs font-semibold text-foreground leading-tight mb-1.5">
-              {metric.name}
-            </p>
-            <p className="text-2xl font-bold text-foreground tabular-nums tracking-tight">
-              {metric.target}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1.5 font-medium">
-              by {metric.timeframe}
-            </p>
-          </div>
-        ))}
-      </div>
-    </SectionCard>
-  );
-}
-
-// ─── Input Tab ────────────────────────────────────────────────────────────────
-
-interface InputTabProps {
-  form: PlannerForm;
-  setForm: React.Dispatch<React.SetStateAction<PlannerForm>>;
-  onGenerate: () => void;
-}
-
-function InputTab({ form, setForm, onGenerate }: InputTabProps) {
-  function update(key: keyof PlannerForm, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function handleReset() {
-    setForm(defaultForm);
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="card-base space-y-0">
-        {/* Card header */}
-        <div className="flex items-start justify-between gap-4 pb-4 mb-5 border-b border-border/70">
-          <div>
-            <h3 className="text-base font-semibold text-foreground">
-              Generate Your Roadmap
-            </h3>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Fill in your startup details and get a structured AI-powered
-              roadmap.
-            </p>
-          </div>
-          <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-        </div>
-
-        {/* Fields */}
-        <div className="space-y-5">
-          {/* Idea — full width */}
-          <div className="space-y-1.5">
-            <Label htmlFor="startup-idea" className="text-sm font-medium">
-              Startup Idea{" "}
-              <span className="text-destructive ml-0.5" aria-hidden>
-                *
-              </span>
-            </Label>
-            <Textarea
-              id="startup-idea"
-              placeholder="Describe your startup idea in a few sentences…"
-              value={form.startupIdea}
-              onChange={(e) => update("startupIdea", e.target.value)}
-              rows={3}
-              className="resize-none text-sm"
-              data-ocid="input-startup-idea"
-            />
-          </div>
-
-          {/* 2-column grid for shorter fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="industry" className="text-sm font-medium">
-                Industry
-              </Label>
-              <Select
-                value={form.industry}
-                onValueChange={(v) => update("industry", v)}
-              >
-                <SelectTrigger
-                  id="industry"
-                  className="h-9 text-sm"
-                  data-ocid="input-industry"
-                >
-                  <SelectValue placeholder="Select industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "Technology",
-                    "Healthcare",
-                    "Finance",
-                    "Education",
-                    "Retail",
-                    "Other",
-                  ].map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="stage" className="text-sm font-medium">
-                Stage
-              </Label>
-              <Select
-                value={form.stage}
-                onValueChange={(v) => update("stage", v)}
-              >
-                <SelectTrigger
-                  id="stage"
-                  className="h-9 text-sm"
-                  data-ocid="input-stage"
-                >
-                  <SelectValue placeholder="Select stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {["Idea", "MVP", "Early Traction", "Growth", "Scale"].map(
-                    (opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt}
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="team-size" className="text-sm font-medium">
-                Team Size
-              </Label>
-              <Input
-                id="team-size"
-                type="number"
-                min={1}
-                placeholder="e.g., 8"
-                value={form.teamSize}
-                onChange={(e) => update("teamSize", e.target.value)}
-                className="h-9 text-sm"
-                data-ocid="input-team-size"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="timeline" className="text-sm font-medium">
-                Timeline
-              </Label>
-              <Input
-                id="timeline"
-                placeholder="e.g., 6 months"
-                value={form.timeline}
-                onChange={(e) => update("timeline", e.target.value)}
-                className="h-9 text-sm"
-                data-ocid="input-timeline"
-              />
-            </div>
-          </div>
-
-          {/* Goal — full width */}
-          <div className="space-y-1.5">
-            <Label htmlFor="goal" className="text-sm font-medium">
-              Primary Goal
-            </Label>
-            <Textarea
-              id="goal"
-              placeholder="What's your primary goal for this roadmap? (e.g., reach $10k MRR, launch beta, close seed round)"
-              value={form.goal}
-              onChange={(e) => update("goal", e.target.value)}
-              rows={2}
-              className="resize-none text-sm"
-              data-ocid="input-goal"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 pt-1 border-t border-border/60 mt-1">
-            <Button
-              type="button"
-              onClick={onGenerate}
-              className="gap-2 h-10 text-sm font-medium btn-lift flex-1 sm:flex-none"
-              data-ocid="btn-generate"
-            >
-              <Sparkles className="w-4 h-4" />
-              Generate Roadmap
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleReset}
-              className="gap-2 h-10 text-sm font-medium btn-lift"
-              data-ocid="btn-reset"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Roadmap Tab ──────────────────────────────────────────────────────────────
-
-interface RoadmapTabProps {
-  output: PlannerOutput;
-  onEditInputs: () => void;
-}
-
-function RoadmapTab({ output, onEditInputs }: RoadmapTabProps) {
-  return (
-    <div className="space-y-5">
-      {/* Roadmap heading bar */}
-      <div className="card-base space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-h4 font-bold text-foreground leading-tight">
-              {output.startupIdea || "Your Startup Roadmap"}
-            </h2>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              <Badge variant="outline" className="text-xs font-normal">
-                {output.industry}
-              </Badge>
-              <Badge variant="outline" className="text-xs font-normal">
-                {output.stage}
-              </Badge>
-              <Badge variant="outline" className="text-xs font-normal">
-                {output.teamSize} people
-              </Badge>
-              <Badge variant="outline" className="text-xs font-normal">
-                {output.timeline}
-              </Badge>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-              data-ocid="btn-import"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Import
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-              data-ocid="btn-regenerate"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Regenerate
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-              onClick={onEditInputs}
-              data-ocid="btn-edit-inputs"
-            >
-              <PenLine className="w-3.5 h-3.5" />
-              Edit Inputs
-            </Button>
-          </div>
-        </div>
-        {/* Stats row */}
-        <div className="pt-3 border-t border-border/60">
-          <RoadmapStats output={output} />
-        </div>
-      </div>
-
-      {/* Sections */}
-      <PhasesSection output={output} />
-      <TasksSection output={output} />
-      <TimelineSection output={output} />
-      <RiskPanel output={output} />
-      <SuccessMetricsSection output={output} />
-    </div>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function Planner() {
-  const [activeTab, setActiveTab] = useState<"input" | "roadmap">("input");
-  const [form, setForm] = useState<PlannerForm>(defaultForm);
-  const [plannerOutput, setPlannerOutput] =
-    useState<PlannerOutput>(samplePlannerOutput);
-
-  function handleGenerate() {
-    setPlannerOutput({
-      ...samplePlannerOutput,
-      ...(form.startupIdea && { startupIdea: form.startupIdea }),
-      ...(form.industry && { industry: form.industry }),
-      ...(form.stage && { stage: form.stage }),
-      ...(form.teamSize && { teamSize: Number(form.teamSize) }),
-      ...(form.timeline && { timeline: form.timeline }),
-      ...(form.goal && { goal: form.goal }),
+      return prev.filter((member) => member.id !== id);
     });
-    setActiveTab("roadmap");
+  }
+
+  function handleAutoAdjust() {
+    setAiAccepted(false);
+    setAiChanges([
+      {
+        id: "A-10",
+        taskName: "Core API implementation",
+        type: "moved",
+        note: "Moved 4 days ahead due to early architecture signoff.",
+      },
+      {
+        id: "A-11",
+        taskName: "Release preparation",
+        type: "delayed",
+        note: "Delayed 2 days to absorb security checklist workload.",
+      },
+      {
+        id: "A-12",
+        taskName: "Launch and handoff",
+        type: "unchanged",
+        note: "No change because slack remains on final milestone.",
+      },
+    ]);
+  }
+
+  function handleAcceptChanges() {
+    setAiAccepted(true);
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === "T-03"
+          ? { ...task, startWeek: 3, endWeek: 7 }
+          : task.id === "T-07"
+            ? { ...task, startWeek: 14, endWeek: 15 }
+            : task,
+      ),
+    );
+  }
+
+  function handleUndoChanges() {
+    setAiAccepted(false);
+    setAiChanges(initialAiChanges);
+    setTasks(initialTasks);
   }
 
   return (
     <div className="space-y-6" data-ocid="planner-page">
       <PageHeader
-        title="AI Planner"
-        subtitle="Generate a structured, phase-by-phase roadmap for your startup using AI-powered planning."
+        title="Project Planning Dashboard"
+        subtitle="SDLC-first planning workspace with timeline, tasks, metrics, risks, and AI-assisted schedule adjustments."
+        action={
+          <Button className="gap-2" onClick={handleAutoAdjust} data-ocid="btn-auto-adjust-plan">
+            <Sparkles className="h-4 w-4" />
+            Auto Adjust Plan
+          </Button>
+        }
       />
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "input" | "roadmap")}
-        className="space-y-5"
-      >
-        <TabsList
-          className="h-auto p-0 bg-transparent border-b border-border rounded-none w-full justify-start gap-0"
-          data-ocid="planner-tabs"
-        >
-          <TabsTrigger
-            value="input"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none text-muted-foreground px-4 py-2.5 text-sm font-medium transition-colors"
-            data-ocid="tab-input"
-          >
-            Planner Input
-          </TabsTrigger>
-          <TabsTrigger
-            value="roadmap"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none text-muted-foreground px-4 py-2.5 text-sm font-medium transition-colors"
-            data-ocid="tab-roadmap"
-          >
-            Roadmap
-          </TabsTrigger>
-        </TabsList>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <div className="rounded-2xl border border-white/10 bg-card/40 p-3 backdrop-blur-xl shadow-[0_20px_60px_-30px_oklch(0_0_0_/_0.8)]">
+            <p className="mb-2 px-2 text-xs uppercase tracking-wider text-muted-foreground">
+              Navigation
+            </p>
+            <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
+              {navItems.map(({ id, label, icon: Icon }) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  className="group inline-flex items-center gap-2 rounded-lg border border-transparent bg-background/30 px-3 py-2 text-sm text-muted-foreground transition-all duration-300 hover:border-primary/40 hover:bg-primary/15 hover:text-foreground"
+                >
+                  <Icon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                  {label}
+                </a>
+              ))}
+            </nav>
+          </div>
+        </aside>
 
-        <TabsContent value="input" className="mt-0">
-          <InputTab form={form} setForm={setForm} onGenerate={handleGenerate} />
-        </TabsContent>
+        <main className="space-y-5">
+          <Tabs defaultValue="ai-input" className="space-y-4">
+            <TabsList className="h-10">
+              <TabsTrigger value="ai-input" className="px-4">
+                AI Plan Input
+              </TabsTrigger>
+              <TabsTrigger value="dashboard" className="px-4">
+                Planning Dashboard
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="roadmap" className="mt-0">
-          <RoadmapTab
-            output={plannerOutput}
-            onEditInputs={() => setActiveTab("input")}
-          />
-        </TabsContent>
-      </Tabs>
+            <TabsContent value="ai-input">
+              <section className="rounded-2xl border border-white/10 bg-card/45 p-4 backdrop-blur-xl shadow-[0_16px_60px_-36px_oklch(0_0_0_/_0.8)] sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h3 className="text-lg font-semibold">AI Plan Input Form</h3>
+              </div>
+              <span className="rounded-full border border-info/30 bg-info/10 px-3 py-1 text-xs text-info">
+                Descriptive Brief + Team Context
+              </span>
+            </div>
+
+            <p className="mb-4 text-sm text-muted-foreground">
+              Fill this form with project context and team details so AI can generate a tailored project plan.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Project name</span>
+                <input
+                  value={planInputForm.projectName}
+                  onChange={(event) => updatePlanInput("projectName", event.target.value)}
+                  placeholder="e.g. SaaS Command Center v5"
+                  className="h-10 w-full rounded-lg border border-border/80 bg-background/45 px-3 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Timeline target</span>
+                <input
+                  value={planInputForm.timeline}
+                  onChange={(event) => updatePlanInput("timeline", event.target.value)}
+                  placeholder="e.g. MVP in 12 weeks, launch in 24 weeks"
+                  className="h-10 w-full rounded-lg border border-border/80 bg-background/45 px-3 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+
+              <label className="space-y-2 lg:col-span-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Product idea</span>
+                <textarea
+                  value={planInputForm.productIdea}
+                  onChange={(event) => updatePlanInput("productIdea", event.target.value)}
+                  rows={3}
+                  placeholder="Describe what you are building and why it matters."
+                  className="w-full rounded-lg border border-border/80 bg-background/45 px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+
+              <label className="space-y-2 lg:col-span-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Problem statement</span>
+                <textarea
+                  value={planInputForm.problemStatement}
+                  onChange={(event) => updatePlanInput("problemStatement", event.target.value)}
+                  rows={3}
+                  placeholder="What core problem should this project solve?"
+                  className="w-full rounded-lg border border-border/80 bg-background/45 px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+
+              <label className="space-y-2 lg:col-span-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Target users / customers</span>
+                <textarea
+                  value={planInputForm.targetUsers}
+                  onChange={(event) => updatePlanInput("targetUsers", event.target.value)}
+                  rows={2}
+                  placeholder="Who will use this product, and what are their key needs?"
+                  className="w-full rounded-lg border border-border/80 bg-background/45 px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+
+              <label className="space-y-2 lg:col-span-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Goals and success criteria</span>
+                <textarea
+                  value={planInputForm.goals}
+                  onChange={(event) => updatePlanInput("goals", event.target.value)}
+                  rows={3}
+                  placeholder="e.g. Launch MVP, onboard 10 pilots, achieve 95% uptime"
+                  className="w-full rounded-lg border border-border/80 bg-background/45 px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Budget (optional)</span>
+                <input
+                  value={planInputForm.budget}
+                  onChange={(event) => updatePlanInput("budget", event.target.value)}
+                  placeholder="e.g. $80k for first 6 months"
+                  className="h-10 w-full rounded-lg border border-border/80 bg-background/45 px-3 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Known constraints</span>
+                <input
+                  value={planInputForm.constraints}
+                  onChange={(event) => updatePlanInput("constraints", event.target.value)}
+                  placeholder="e.g. 4 engineers, SOC2 needed, fixed launch date"
+                  className="h-10 w-full rounded-lg border border-border/80 bg-background/45 px-3 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-border/80 bg-background/40 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-info" />
+                  <p className="text-sm font-semibold">Team Members for AI Context</p>
+                </div>
+                <Button variant="outline" className="gap-2" onClick={addTeamMember} data-ocid="btn-add-team-member">
+                  <Plus className="h-4 w-4" />
+                  Add Member
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {teamMembers.map((member, index) => (
+                  <article key={member.id} className="rounded-lg border border-border/80 bg-background/45 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Member {index + 1}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeTeamMember(member.id)}
+                        data-ocid="btn-remove-team-member"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="space-y-1.5">
+                        <span className="text-xs text-muted-foreground">Name</span>
+                        <select
+                          value={member.name}
+                          onChange={(event) =>
+                            updateTeamMember(member.id, "name", event.target.value)
+                          }
+                          className="h-9 w-full rounded-md border border-border/80 bg-background/45 px-3 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+                        >
+                          <option value="">Select team member</option>
+                          {mockTeam.map((teamMember) => (
+                            <option key={teamMember.id} value={teamMember.name}>
+                              {teamMember.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-border/80 bg-background/35 p-3">
+              <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">AI input payload preview</p>
+              <pre className="max-h-60 overflow-auto rounded-md border border-border/70 bg-background/60 p-3 text-xs text-muted-foreground">
+                {JSON.stringify(aiPlanPayload, null, 2)}
+              </pre>
+            </div>
+              </section>
+            </TabsContent>
+
+            <TabsContent value="dashboard" className="space-y-5">
+
+          <section
+            id="overview"
+            className="rounded-2xl border border-white/10 bg-card/45 p-4 backdrop-blur-xl shadow-[0_16px_60px_-36px_oklch(0_0_0_/_0.8)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3 sm:p-6"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-foreground">SaaS Command Center v4</h3>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  End-to-end planning dashboard for discovery, build, testing, and release phases with AI-guided schedule refinement.
+                </p>
+              </div>
+              <span className={cn("rounded-full border px-3 py-1 text-xs font-medium", completionPercent >= 60 ? "bg-warning/15 text-warning border-warning/40" : "bg-destructive/15 text-destructive border-destructive/40")}>
+                Status: {projectStatus}
+              </span>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border/80 bg-background/45 p-3">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Progress</p>
+                <p className="mt-1 text-2xl font-bold">{completionPercent}%</p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-background/45 p-3">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Tasks Completed</p>
+                <p className="mt-1 text-2xl font-bold">{completedCount}/{tasks.length}</p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-background/45 p-3">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Overdue</p>
+                <p className="mt-1 text-2xl font-bold text-warning">{overdueCount}</p>
+              </div>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted/60">
+              <div className="h-full rounded-full bg-gradient-to-r from-info via-primary to-success transition-all duration-700" style={{ width: `${completionPercent}%` }} />
+            </div>
+          </section>
+
+          <section
+            id="timeline"
+            className="rounded-2xl border border-white/10 bg-card/45 p-4 backdrop-blur-xl shadow-[0_16px_60px_-36px_oklch(0_0_0_/_0.8)] sm:p-6"
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <GitBranch className="h-4 w-4 text-primary" />
+              <h3 className="text-lg font-semibold">Timeline View</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[760px] space-y-3">
+                <div className="grid grid-cols-[220px_minmax(0,1fr)] gap-3 text-xs text-muted-foreground">
+                  <p>Task</p>
+                  <div className="grid grid-cols-8 gap-1">
+                    {Array.from({ length: 8 }, (_, i) => (
+                      <span key={i} className="text-center">W{i * 2 + 1}-{i * 2 + 2}</span>
+                    ))}
+                  </div>
+                </div>
+                {tasks.map((task) => {
+                  const left = ((task.startWeek - 1) / timelineWeeks) * 100;
+                  const width = ((task.endWeek - task.startWeek + 1) / timelineWeeks) * 100;
+                  return (
+                    <div key={task.id} className="grid grid-cols-[220px_minmax(0,1fr)] gap-3">
+                      <div>
+                        <p className="text-sm font-medium">{task.id} • {task.name}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Depends on: {task.dependencies.length > 0 ? task.dependencies.join(", ") : "None"}
+                        </p>
+                      </div>
+                      <div className="relative h-10 rounded-lg border border-border/70 bg-background/45">
+                        <div
+                          className={cn(
+                            "absolute top-1.5 h-7 rounded-md border px-2 text-xs font-medium leading-6 transition-all duration-500",
+                            statusClass(task.status),
+                          )}
+                          style={{ left: `${left}%`, width: `${Math.max(width, 8)}%` }}
+                        >
+                          {task.assignee}
+                        </div>
+                        {task.dependencies.length > 0 && (
+                          <ArrowRight className="absolute right-2 top-3.5 h-3.5 w-3.5 text-muted-foreground/70" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section
+            id="tasks"
+            className="rounded-2xl border border-white/10 bg-card/45 p-4 backdrop-blur-xl shadow-[0_16px_60px_-36px_oklch(0_0_0_/_0.8)] sm:p-6"
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <ListTodo className="h-4 w-4 text-info" />
+              <h3 className="text-lg font-semibold">Task Management</h3>
+            </div>
+
+            <div className="hidden lg:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Deadline</TableHead>
+                    <TableHead>Assigned User</TableHead>
+                    <TableHead>Dependencies</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tasks.map((task) => (
+                    <TableRow key={task.id}>
+                      <TableCell className="font-medium">{task.name}</TableCell>
+                      <TableCell>
+                        <span className={cn("rounded border px-2 py-1 text-xs capitalize", levelClass(task.priority))}>
+                          {task.priority}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={cn("rounded border px-2 py-1 text-xs capitalize", statusClass(task.status))}>
+                          {task.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>{task.deadline}</TableCell>
+                      <TableCell>{task.assignee}</TableCell>
+                      <TableCell>{task.dependencies.length > 0 ? task.dependencies.join(", ") : "None"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:hidden">
+              {tasks.map((task) => (
+                <article key={task.id} className="rounded-xl border border-border/80 bg-background/40 p-3">
+                  <p className="font-medium">{task.name}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <span className={cn("rounded border px-2 py-1 capitalize", levelClass(task.priority))}>{task.priority}</span>
+                    <span className={cn("rounded border px-2 py-1 capitalize", statusClass(task.status))}>{task.status}</span>
+                    <span>Deadline: {task.deadline}</span>
+                    <span>User: {task.assignee}</span>
+                    <span className="col-span-2 text-muted-foreground">
+                      Dependencies: {task.dependencies.length > 0 ? task.dependencies.join(", ") : "None"}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section
+            id="effort"
+            className="rounded-2xl border border-white/10 bg-card/45 p-4 backdrop-blur-xl shadow-[0_16px_60px_-36px_oklch(0_0_0_/_0.8)] sm:p-6"
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <TimerReset className="h-4 w-4 text-info" />
+              <h3 className="text-lg font-semibold">Effort Estimation</h3>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="rounded-xl border border-border/80 bg-background/45 p-4">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Estimated Total Effort</p>
+                <p className="mt-2 text-2xl font-bold">{totalEffortHours}h</p>
+                <p className="mt-2 text-xs text-muted-foreground">Approximate workload across the active plan.</p>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-background/45 p-4">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">High Load Tasks</p>
+                <p className="mt-2 text-2xl font-bold text-warning">
+                  {effortEstimates.filter((estimate) => estimate.load >= 60).length}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">Tasks with heavier coordination or build effort.</p>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-background/45 p-4">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Average Load</p>
+                <p className="mt-2 text-2xl font-bold text-primary">
+                  {Math.round(
+                    effortEstimates.reduce((sum, estimate) => sum + estimate.load, 0) /
+                      effortEstimates.length,
+                  )}%
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">Derived from duration, priority, and dependencies.</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {effortEstimates.map((estimate) => (
+                <article key={estimate.id} className="rounded-xl border border-border/80 bg-background/40 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{estimate.taskName}</p>
+                      <p className="text-xs text-muted-foreground">{estimate.note}</p>
+                    </div>
+                    <span className="rounded-full border border-info/40 bg-info/15 px-3 py-1 text-xs font-medium text-info">
+                      {estimate.estimate}
+                    </span>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-muted/60">
+                    <div className="h-full rounded-full bg-gradient-to-r from-info to-primary transition-all duration-500" style={{ width: `${estimate.load}%` }} />
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section
+            id="outcome"
+            className="rounded-2xl border border-white/10 bg-card/45 p-4 backdrop-blur-xl shadow-[0_16px_60px_-36px_oklch(0_0_0_/_0.8)] sm:p-6"
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-success" />
+              <h3 className="text-lg font-semibold">Outcome Estimation</h3>
+            </div>
+
+            <div className="mb-4 rounded-xl border border-success/20 bg-success/10 p-4 text-sm text-success-foreground/90">
+              What good things happen if we follow this plan: stronger delivery flow, fewer handoff gaps, and a cleaner path to launch.
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {outcomeEstimates.map((item) => (
+                <div key={item.id} className="rounded-xl border border-border/80 bg-background/45 p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">{item.label}</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">{item.summary}</p>
+                  <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    {item.benefits.map((benefit) => (
+                      <li key={benefit} className="flex gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-success flex-shrink-0" />
+                        <span>{benefit}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-border/80 bg-background/45 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Positive outcomes</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-border/70 bg-background/35 p-3">
+                  <p className="text-xs text-muted-foreground">Milestone flow</p>
+                  <p className="text-lg font-semibold">Smoother</p>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-background/35 p-3">
+                  <p className="text-xs text-muted-foreground">Team coordination</p>
+                  <p className="text-lg font-semibold text-success">Clearer</p>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-background/35 p-3">
+                  <p className="text-xs text-muted-foreground">Release outcome</p>
+                  <p className="text-lg font-semibold text-primary">More predictable</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-white/10 bg-card/45 p-4 backdrop-blur-xl shadow-[0_16px_60px_-36px_oklch(0_0_0_/_0.8)] sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <h3 className="text-lg font-semibold">AI Planning</h3>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+              <div className="space-y-3">
+                {aiChanges.map((change) => (
+                  <div key={change.id} className="rounded-xl border border-border/80 bg-background/40 p-3">
+                    <p className="text-sm font-medium">{change.taskName}</p>
+                    <p className={cn("mt-1 text-xs font-semibold uppercase tracking-wide", aiTypeClass(change.type))}>
+                      {change.type}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">{change.note}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Button className="w-full gap-2" onClick={handleAcceptChanges} data-ocid="btn-accept-ai-changes">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Accept
+                </Button>
+                <Button variant="outline" className="w-full gap-2" onClick={handleUndoChanges} data-ocid="btn-undo-ai-changes">
+                  <Undo2 className="h-4 w-4" />
+                  Undo
+                </Button>
+                <div className="rounded-lg border border-border/80 bg-background/40 p-3 text-xs text-muted-foreground">
+                  <p className="mb-1 font-medium text-foreground">Plan Impact</p>
+                  <p>
+                    {aiAccepted
+                      ? "AI changes applied to timeline bars."
+                      : "Review AI changes before applying."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              No backend calls are used. This panel is UI-only state simulation.
+            </div>
+          </section>
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Clock3 className="h-3.5 w-3.5" />
+        Responsive layout: sidebar collapses to horizontal nav on mobile, timeline remains scrollable.
+      </div>
     </div>
   );
 }

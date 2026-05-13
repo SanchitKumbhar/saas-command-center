@@ -34,9 +34,9 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "bg-card border border-border rounded-xl p-4 sm:p-5 flex flex-col gap-3",
-        "shadow-xs hover:shadow-md transition-all duration-200",
-        "hover:-translate-y-px",
+        "bg-card border border-border/90 rounded-xl p-3 sm:p-4 lg:p-5 flex flex-col gap-3",
+        "shadow-[0_10px_28px_-22px_oklch(0_0_0_/_0.6)] transition-all duration-200",
+        "hover:-translate-y-px hover:border-border-strong/75 hover:shadow-[0_20px_38px_-22px_oklch(0_0_0_/_0.68)]",
         className,
       )}
       data-ocid="stat-card"
@@ -54,21 +54,21 @@ export function StatCard({
       </div>
 
       {/* Value + trend */}
-      <div className="flex items-end justify-between gap-3">
-        <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground leading-none tracking-tight">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <p className="min-w-0 break-words text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-foreground leading-none tracking-tight">
           {value}
         </p>
         {change !== undefined && (
           <div
             className={cn(
-              "flex items-center gap-1 text-xs font-semibold flex-shrink-0 pb-0.5",
+              "flex flex-wrap items-center gap-1 text-[11px] sm:text-xs font-semibold",
               trendColor,
             )}
           >
             <TrendIcon size={12} />
             <span>{Math.abs(change)}%</span>
             {changeLabel && (
-              <span className="text-muted-foreground font-normal hidden sm:block text-[11px]">
+              <span className="text-muted-foreground font-normal text-[11px]">
                 {changeLabel}
               </span>
             )}

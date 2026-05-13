@@ -1,16 +1,20 @@
 {
   "name": "@caffeine/template-app",
   "type": "module",
+  "workspaces": [
+    "src/*"
+  ],
   "engines": {
     "node": ">=16.0.0",
-    "pnpm": ">=7.0.0",
-    "npm": "please use pnpm"
+    "npm": ">=9.0.0"
   },
   "scripts": {
-    "build": "pnpm -r --if-present run build",
-    "typecheck": "pnpm -r --if-present run typecheck",
-    "check": "pnpm -r --if-present run check",
-    "fix": "pnpm -r --if-present run fix",
+    "dev": "npm run dev -w src/frontend",
+    "dev:frontend": "npm run dev -w src/frontend",
+    "build": "npm run -ws --if-present build",
+    "typecheck": "npm run -ws --if-present typecheck",
+    "check": "npm run -ws --if-present check",
+    "fix": "npm run -ws --if-present fix",
     "bindgen": "caffeine-bindgen --did-file ./src/backend/dist/backend.did --out-dir ./src/frontend/src --actor-interface-file --force"
   },
   "devDependencies": {

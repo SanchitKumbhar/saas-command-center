@@ -63,19 +63,19 @@
     --lh-body: 1.6;
 
     /* ─── Color — Light ──────────────────────────────────── */
-    --background: 0.98 0 0;
+    --background: 0.965 0.004 250;
     --foreground: 0.12 0 0;
 
-    --card: 0.99 0 0;
+    --card: 0.995 0.006 250;
     --card-foreground: 0.12 0 0;
 
     --popover: 0.99 0 0;
     --popover-foreground: 0.12 0 0;
 
     /* Surface layering */
-    --surface-1: 0.98 0 0; /* page bg */
-    --surface-2: 0.99 0 0; /* card bg */
-    --surface-3: 0.965 0 0; /* input bg / subtle inset */
+    --surface-1: 0.965 0.004 250; /* page bg */
+    --surface-2: 0.995 0.006 250; /* card bg */
+    --surface-3: 0.955 0.006 250; /* input bg / subtle inset */
 
     /* Neutral scale (lightness only, chroma=0, hue=0) */
     --neutral-50: 0.97 0 0;
@@ -123,8 +123,8 @@
     --info-subtle: 0.96 0.04 240;
 
     /* Borders & Inputs */
-    --border: 0.89 0.01 260;
-    --border-strong: 0.8 0.01 260;
+    --border: 0.86 0.012 250;
+    --border-strong: 0.78 0.014 250;
     --input: 0.965 0 0;
     --input-border: 0.86 0.01 260;
     --ring: 0.55 0.22 260;
@@ -150,19 +150,19 @@
   }
 
   .dark {
-    --background: 0.11 0 0;
+    --background: 0.115 0.01 250;
     --foreground: 0.93 0 0;
 
-    --card: 0.145 0 0;
+    --card: 0.135 0.018 248;
     --card-foreground: 0.93 0 0;
 
-    --popover: 0.16 0 0;
+    --popover: 0.14 0.015 248;
     --popover-foreground: 0.93 0 0;
 
     /* Surface layering */
-    --surface-1: 0.11 0 0;
-    --surface-2: 0.145 0 0;
-    --surface-3: 0.185 0 0;
+    --surface-1: 0.115 0.01 250;
+    --surface-2: 0.135 0.018 248;
+    --surface-3: 0.165 0.018 248;
 
     /* Neutral scale */
     --neutral-50: 0.18 0 0;
@@ -210,8 +210,8 @@
     --info-subtle: 0.18 0.06 240;
 
     /* Borders & Inputs */
-    --border: 0.22 0.01 260;
-    --border-strong: 0.3 0.01 260;
+    --border: 0.24 0.018 248;
+    --border-strong: 0.31 0.02 248;
     --input: 0.185 0 0;
     --input-border: 0.26 0.01 260;
     --ring: 0.65 0.24 260;
@@ -258,6 +258,11 @@
     font-size: var(--text-body);
     line-height: var(--lh-body);
     min-height: 100dvh;
+    background-image:
+      radial-gradient(circle at 12% 8%, oklch(var(--primary) / 0.08), transparent 24%),
+      radial-gradient(circle at 88% 4%, oklch(var(--info) / 0.06), transparent 22%),
+      linear-gradient(to bottom, oklch(var(--background)), oklch(var(--surface-1)));
+    background-attachment: fixed;
   }
 
   /* ─── Typography Reset ───────────────────────────────── */
